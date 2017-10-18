@@ -9,6 +9,20 @@ import {
 } from 'redux'
 
 /**
+ * Provider function that returns configured store
+ *
+ * @returns {Function}
+ */
+export const getStore = prop(null)
+
+/**
+ * Provider function that returns contextual connection function for connecting components to the store
+ *
+ * @returns {Function}
+ */
+export const getConnect = prop(null)
+
+/**
  * Generates a new action creator for dispatching requests.
  *
  * @param type
@@ -51,9 +65,8 @@ export const defaultMapStateToProps = (state, props) => state
  *
  * @param store
  */
-export const connectStore = (store) =>
-  (mapStateToProps, mapActionCreators = {}) => (component) => {
-  return {
+export const connectStore = (store) => {
+  const connection = (mapStateToProps, mapActionCreators = {}) => (component) => ({
     oninit(vnode) {
       this.store = store
       this.componentState = prop({})
@@ -96,13 +109,18 @@ export const connectStore = (store) =>
       this.tryUnsubscribe()
     },
 
-    view (vnode, children) {
+    view (vnode) {
       const actions = this.actions
       const storeProps = this.componentState()
 
-      return m(component, { actions, ...storeProps, ...vnode.attrs}, children)
+      return m(component, { actions, ...storeProps, ...vnode.attrs}, vnode.children)
     }
-  }
+  })
+
+  // cache the connection context
+  getConnect(connection)
+
+  return connection
 }
 
 /**
@@ -114,12 +132,16 @@ export const connectStore = (store) =>
  * @returns {Store<S>}
  */
 export const configureStore = (reducers, initialState = {}, middleware = []) => {
-  /**
-   * Create data store from the defined data shape
-   */
-  return createStore(
+  const store = createStore(
     combineReducers(reducers),
     initialState,
-    applyMiddleware(...middleware)
+    applyMiddleware(...middleware),
   )
+
+  // cache the store context
+  getStore(store)
+
+  return store
 }
+
+
